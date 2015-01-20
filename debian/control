@@ -1,0 +1,17 @@
+Source: silversearcher-ag-el
+Section: lisp
+Priority: extra
+Maintainer: Hajime Mizuno <mizuno-as@ubuntu.com>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.6
+Homepage: https://github.com/Wilfred/ag.el
+#Vcs-Git: git://git.debian.org/collab-maint/silversearcher-ag-el.git
+#Vcs-Browser: http://git.debian.org/?p=collab-maint/silversearcher-ag-el.git;a=summary
+
+Package: silversearcher-ag-el
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, emacsen-common (>= 2.0.8), silversearcher-ag, emacs, s-el (>= 1.9.0), dash-el (>= 2.8.0)
+Description: Emacs frontend to ag
+ The Silver Searcher (a.k.a. ag) is very fast grep-like program.
+ It is faster and has an attractive features than grep.
+ ag.el is simple ag frontend for Emacs, loosely based on ack-and-half.el.

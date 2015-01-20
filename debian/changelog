@@ -1,0 +1,49 @@
+silversearcher-ag-el (0.45-1) unstable; urgency=medium
+
+  * new upstream release
+  * debian/control
+    - add Depends: s-el and dash-el.
+    - change Depends: from emacs 23 | emacs 24 to emacs.
+
+ -- Hajime Mizuno <mizuno-as@ubuntu.com>  Tue, 20 Jan 2015 19:16:53 +0900
+
+silversearcher-ag-el (0.44-1) unstable; urgency=medium
+
+  * new upstream release
+  * debian/control
+    - set Standards-Version: 3.9.6.
+  * add debian/watch
+
+ -- Hajime Mizuno <mizuno-as@ubuntu.com>  Sun, 26 Oct 2014 13:22:47 +0900
+
+silversearcher-ag-el (0.43-2) unstable; urgency=medium
+
+  * fix byte-compiling issues (Closes: #751829)
+    - Drop xemacs21 from debian/emacsen-{install,remove}.
+
+ -- Hajime Mizuno <mizuno-as@ubuntu.com>  Tue, 17 Jun 2014 12:37:26 +0900
+
+silversearcher-ag-el (0.43-1) unstable; urgency=low
+
+  * new upstream release
+  * debian/control
+    - set Standards-Version: 3.9.5.
+    - set Depends: emacsen-common (>= 2.0.8).
+  * add debian/emacsen-compat
+    for comply to newer Emacs policy.
+  * debian/copyright
+    - update copyright year to 2013-2014.
+
+ -- Hajime Mizuno <mizuno-as@ubuntu.com>  Sun, 15 Jun 2014 14:37:25 +0900
+
+silversearcher-ag-el (0.33-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Hajime Mizuno <mizuno-as@ubuntu.com>  Fri, 08 Nov 2013 15:36:26 +0900
+
+silversearcher-ag-el (0.22-1) unstable; urgency=low
+
+  * Initial release (Closes: #709851)
+
+ -- Hajime Mizuno <mizuno-as@ubuntu.com>  Sun, 26 May 2013 10:59:14 +0900
