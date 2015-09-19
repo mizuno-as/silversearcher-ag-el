@@ -4,8 +4,8 @@
 ;;
 ;; Author: Wilfred Hughes <me@wilfred.me.uk>
 ;; Created: 11 January 2013
-;; Version: 0.45
-;; Package-Requires: ((dash "2.8.0") (s "1.9.0"))
+;; Version: 0.46
+;; Package-Requires: ((dash "2.8.0") (s "1.9.0") (cl-lib "0.5"))
 ;;; Commentary:
 
 ;; Please see README.md for documentation, or read it online at
@@ -33,10 +33,11 @@
 
 ;;; Code:
 (eval-when-compile (require 'cl)) ;; dolist, defun*, flet
+(require 'cl-lib) ;; cl-letf
 (require 'dired) ;; dired-sort-inhibit
 (require 'dash)
 (require 's)
-(require 'ido)  ;; completion
+(require 'find-dired) ;; find-dired-filter
 
 (defcustom ag-executable
   "ag"
@@ -45,7 +46,7 @@
   :group 'ag)
 
 (defcustom ag-arguments
-  (list "--line-number" "--smart-case" "--nogroup" "--column" "--")
+  (list "--line-number" "--smart-case" "--nogroup" "--column" "--stats" "--")
   "Default arguments passed to ag.
 
 Ag.el requires --nogroup and --column, so we recommend you add any
@@ -107,14 +108,31 @@ If set to nil, fall back to finding VCS root directories."
   "Face name to use for ag matches."
   :group 'ag)
 
+(defvar ag-search-finished-hook nil
+  "Hook run when ag completes a search in a buffer.")
+
+(defun ag/run-finished-hook (buffer how-finished)
+  "Run the ag hook to signal that the search has completed."
+  (with-current-buffer buffer
+    (run-hooks 'ag-search-finished-hook)))
+
+(defmacro ag/with-patch-function (fun-name fun-args fun-body &rest body)
+  "Temporarily override the definition of FUN-NAME whilst BODY is executed.
+
+Assumes FUNCTION is already defined (see http://emacs.stackexchange.com/a/3452/304)."
+  `(cl-letf (((symbol-function ,fun-name)
+              (lambda ,fun-args ,fun-body)))
+     ,@body))
+
 (defun ag/next-error-function (n &optional reset)
   "Open the search result at point in the current window or a
 different window, according to `ag-reuse-window'."
   (if ag-reuse-window
       ;; prevent changing the window
-      (flet ((pop-to-buffer (buffer &rest args)
-                            (switch-to-buffer buffer)))
-        (compilation-next-error-function n reset))
+      (ag/with-patch-function
+       'pop-to-buffer (buffer &rest args) (switch-to-buffer buffer)
+       (compilation-next-error-function n reset))
+
     ;; just navigate to the results as normal
     (compilation-next-error-function n reset)))
 
@@ -133,11 +151,13 @@ different window, according to `ag-reuse-window'."
   (set (make-local-variable 'compilation-error-regexp-alist-alist)
        (list (cons 'compilation-ag-nogroup (list ag/file-column-pattern 1 2 3))))
   (set (make-local-variable 'compilation-error-face) 'ag-hit-face)
-  (set (make-local-variable 'next-error-function) 'ag/next-error-function)
+  (set (make-local-variable 'next-error-function) #'ag/next-error-function)
+  (set (make-local-variable 'compilation-finish-functions)
+       #'ag/run-finished-hook)
   (add-hook 'compilation-filter-hook 'ag-filter nil t))
 
-(define-key ag-mode-map (kbd "p") 'compilation-previous-error)
-(define-key ag-mode-map (kbd "n") 'compilation-next-error)
+(define-key ag-mode-map (kbd "p") #'compilation-previous-error)
+(define-key ag-mode-map (kbd "n") #'compilation-next-error)
 (define-key ag-mode-map (kbd "k") '(lambda () (interactive) 
                                      (let (kill-buffer-query-functions) (kill-buffer))))
 
@@ -150,7 +170,7 @@ different window, according to `ag-reuse-window'."
 
 (defun ag/format-ignore (ignores)
   "Prepend '--ignore' to every item in IGNORES."
-  (apply 'append
+  (apply #'append
          (mapcar (lambda (item) (list "--ignore" item)) ignores)))
 
 (defun* ag/search (string directory
@@ -161,7 +181,7 @@ If REGEXP is non-nil, treat STRING as a regular expression."
         (arguments ag-arguments)
         (shell-command-switch "-c"))
     (unless regexp
-        (setq arguments (cons "--literal" arguments)))
+      (setq arguments (cons "--literal" arguments)))
     (if ag-highlight-search
         (setq arguments (append '("--color" "--color-match" "30;43") arguments))
       (setq arguments (append '("--nocolor") arguments)))
@@ -174,7 +194,7 @@ If REGEXP is non-nil, treat STRING as a regular expression."
     (unless (file-exists-p default-directory)
       (error "No such directory %s" default-directory))
     (let ((command-string
-           (mapconcat 'shell-quote-argument
+           (mapconcat #'shell-quote-argument
                       (append (list ag-executable) arguments (list string "."))
                       " ")))
       ;; If we're called with a prefix, let the user modify the command before
@@ -190,7 +210,7 @@ If REGEXP is non-nil, treat STRING as a regular expression."
       ;; Call ag.
       (compilation-start
        command-string
-       'ag-mode
+       #'ag-mode
        `(lambda (mode-name) ,(ag/buffer-name string directory regexp))))))
 
 (defun ag/dwim-at-point ()
@@ -292,8 +312,8 @@ roots."
                 (beginning-of-line)
 
                 ;; Remove occurrences of default-directory.
-                (while (search-forward default-directory nil t)
-                  (replace-match "" nil t))
+                (while (search-forward (concat " " default-directory) nil t)
+                  (replace-match " " nil t))
 
                 (goto-char (point-max))
                 (if (search-backward "\n" (process-mark proc) t)
@@ -340,14 +360,14 @@ roots."
   "Escape the PCRE-special characters in REGEXP so that it is
 matched literally."
   (let ((alphanum "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"))
-    (apply 'concat
-            (mapcar
-             (lambda (c)
-               (cond
-                ((not (string-match-p (regexp-quote c) alphanum))
-                 (concat "\\" c))
-                (t c)))
-             (mapcar 'char-to-string (string-to-list regexp))))))
+    (apply #'concat
+           (mapcar
+            (lambda (c)
+              (cond
+               ((not (string-match-p (regexp-quote c) alphanum))
+                (concat "\\" c))
+               (t c)))
+            (mapcar #'char-to-string (string-to-list regexp))))))
 
 ;;;###autoload
 (defun ag (string directory)
@@ -355,9 +375,9 @@ matched literally."
 with STRING defaulting to the symbol under point.
 
 If called with a prefix, prompts for flags to pass to ag."
-   (interactive (list (read-from-minibuffer "Search string: " (ag/dwim-at-point))
-                      (read-directory-name "Directory: ")))
-   (ag/search string directory))
+  (interactive (list (ag/read-from-minibuffer "Search regexp")
+                     (read-directory-name "Directory: ")))
+  (ag/search string directory))
 
 ;;;###autoload
 (defun ag-files (string file-type directory)
@@ -366,10 +386,10 @@ limited to files that match FILE-TYPE. STRING defaults to
 the symbol under point.
 
 If called with a prefix, prompts for flags to pass to ag."
-  (interactive (list (read-from-minibuffer "Search string: " (ag/dwim-at-point))
+  (interactive (list (ag/read-from-minibuffer "Search string")
                      (ag/read-file-type)
                      (read-directory-name "Directory: ")))
-  (apply 'ag/search string directory file-type))
+  (apply #'ag/search string directory file-type))
 
 ;;;###autoload
 (defun ag-regexp (string directory)
@@ -386,7 +406,7 @@ If called with a prefix, prompts for flags to pass to ag."
 for the given string.
 
 If called with a prefix, prompts for flags to pass to ag."
-  (interactive (list (read-from-minibuffer "Search string: " (ag/dwim-at-point))))
+  (interactive (list (ag/read-from-minibuffer "Search string")))
   (ag/search string (ag/project-root default-directory)))
 
 ;;;###autoload
@@ -396,9 +416,28 @@ limited to files that match FILE-TYPE. STRING defaults to the
 symbol under point.
 
 If called with a prefix, prompts for flags to pass to ag."
-  (interactive (list (read-from-minibuffer "Search string: " (ag/dwim-at-point))
+  (interactive (list (ag/read-from-minibuffer "Search string")
                      (ag/read-file-type)))
   (apply 'ag/search string (ag/project-root default-directory) file-type))
+
+(defun ag/read-from-minibuffer (prompt)
+  "Read a value from the minibuffer with PROMPT.
+If there's a string at point, offer that as a default."
+  (let* ((suggested (ag/dwim-at-point))
+         (final-prompt
+          (if suggested
+              (format "%s (default %s): " prompt suggested)
+            (format "%s: " prompt)))
+         ;; Ask the user for input, but add `suggested' to the history
+         ;; so they can use M-n if they want to modify it.
+         (user-input (read-from-minibuffer
+                      final-prompt
+                      nil nil nil nil suggested)))
+    ;; Return the input provided by the user, or use `suggested' if
+    ;; the input was empty.
+    (if (> (length user-input) 0)
+        user-input
+      suggested)))
 
 ;;;###autoload
 (defun ag-project-regexp (regexp)
@@ -407,8 +446,7 @@ for the given regexp. The regexp should be in PCRE syntax, not
 Emacs regexp syntax.
 
 If called with a prefix, prompts for flags to pass to ag."
-  (interactive (list (read-from-minibuffer "Search regexp: "
-                                           (ag/escape-pcre (ag/dwim-at-point)))))
+  (interactive (list (ag/escape-pcre (ag/read-from-minibuffer "Search regexp"))))
   (ag/search regexp (ag/project-root default-directory) :regexp t))
 
 (autoload 'symbol-at-point "thingatpt")
@@ -553,7 +591,7 @@ This function is called from `compilation-filter-hook'."
 (defun ag/get-supported-types ()
   "Query the ag executable for which file types it recognises."
   (let* ((ag-output (shell-command-to-string (format "%s --list-file-types" ag-executable)))
-         (lines (-map 's-trim (s-lines ag-output)))
+         (lines (-map #'s-trim (s-lines ag-output)))
          (types (--keep (when (s-starts-with? "--" it) (s-chop-prefix "--" it )) lines))
          (extensions (--map (s-split "  " it) (--filter (s-starts-with? "." it) lines))))
     (-zip types extensions)))
@@ -563,8 +601,8 @@ This function is called from `compilation-filter-hook'."
   (let* ((all-types-with-extensions (ag/get-supported-types))
          (all-types (mapcar 'car all-types-with-extensions))
          (file-type
-          (ido-completing-read "Select file type: "
-                               (append '("custom (provide a PCRE regex)") all-types)))
+          (completing-read "Select file type: "
+                           (append '("custom (provide a PCRE regex)") all-types)))
          (file-type-extensions
           (cdr (assoc file-type all-types-with-extensions))))
     (if file-type-extensions

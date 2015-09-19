@@ -1,5 +1,8 @@
 # ag.el
 
+[![MELPA](http://melpa.org/packages/ag-badge.svg)](http://melpa.org/#/ag)
+[![MELPA Stable](http://stable.melpa.org/packages/ag-badge.svg)](http://stable.melpa.org/#/ag)
+
 Ag.el allows you to search using `ag` from inside Emacs. You can
 filter by file type, edit results inline, or find files.
 
@@ -22,5 +25,3 @@ Bugs: https://github.com/Wilfred/ag.el/issues
   symbol at point.
 * Add aliases for the old command names to ensure backward
   compatibility.
-* Modify `ag-regexp-project-at-point` to quote the default search
-  string, otherwise `"foo.bar"` will match other things.

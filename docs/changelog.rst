@@ -4,6 +4,30 @@ Changelog
 Previous Versions
 -----------------
 
+master
+~~~~~~
+
+Replaced calls to ``ido-completing-read`` with
+``completing-read``. This allows helm users to use helm completion. To
+continue using ido for completion, please install
+ido-ubiquitous-mode. This only affects ``ag-files`` and
+``ag-project-files``.
+
+Fixed an issue where pressing ``k`` would kill the search results
+buffer, even if ``evil-mode`` was active. ``k`` now only kills the
+results buffer if you're not using evil.
+
+Search results buffers now include a summary of the total number of
+results and the number of files matched.
+
+When choosing a search term, the prompt is now empty. Ag.el will use
+the default if no search term is given, but saves a keystroke if you
+don't want the default. You can edit the default value by pressing
+``M-n`` in the minibuffer.
+
+Added ``ag-search-finished-hook``, a hook that's run when the search
+is completed.
+
 0.45
 ~~~~
 
