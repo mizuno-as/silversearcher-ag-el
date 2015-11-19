@@ -4,7 +4,11 @@
 FLAVOR=$1
 PACKAGE=silversearcher-ag-el
 
-if [ ${FLAVOR} = xemacs21 ]; then exit 0; fi
+case $FLAVOR in
+    emacs|*xemacs*|emacs23|emacs22|emacs21|emacs20|emacs19|mule2)
+    exit 0
+    ;;
+esac
 
 if [ ${FLAVOR} != emacs ]; then
     if test -x /usr/sbin/install-info-altdir; then
