@@ -4,7 +4,7 @@
 ;;
 ;; Author: Wilfred Hughes <me@wilfred.me.uk>
 ;; Created: 11 January 2013
-;; Version: 0.46
+;; Version: 0.47
 ;; Package-Requires: ((dash "2.8.0") (s "1.9.0") (cl-lib "0.5"))
 ;;; Commentary:
 
@@ -32,8 +32,7 @@
 ;; Boston, MA 02110-1301, USA.
 
 ;;; Code:
-(eval-when-compile (require 'cl)) ;; dolist, defun*, flet
-(require 'cl-lib) ;; cl-letf
+(require 'cl-lib) ;; cl-letf, cl-defun
 (require 'dired) ;; dired-sort-inhibit
 (require 'dash)
 (require 's)
@@ -52,7 +51,7 @@
 Ag.el requires --nogroup and --column, so we recommend you add any
 additional arguments to the start of this list.
 
---line-number is required on Window, as otherwise ag will not
+--line-number is required on Windows, as otherwise ag will not
 print line numbers when the input is a stream."
   :type '(repeat (string))
   :group 'ag)
@@ -173,8 +172,8 @@ different window, according to `ag-reuse-window'."
   (apply #'append
          (mapcar (lambda (item) (list "--ignore" item)) ignores)))
 
-(defun* ag/search (string directory
-                          &key (regexp nil) (file-regex nil) (file-type nil))
+(cl-defun ag/search (string directory
+                            &key (regexp nil) (file-regex nil) (file-type nil))
   "Run ag searching for the STRING given in DIRECTORY.
 If REGEXP is non-nil, treat STRING as a regular expression."
   (let ((default-directory (file-name-as-directory directory))
@@ -183,8 +182,15 @@ If REGEXP is non-nil, treat STRING as a regular expression."
     (unless regexp
       (setq arguments (cons "--literal" arguments)))
     (if ag-highlight-search
+        ;; We're highlighting, so pass additional arguments for
+        ;; highlighting the current search term using shell escape
+        ;; sequences.
         (setq arguments (append '("--color" "--color-match" "30;43") arguments))
-      (setq arguments (append '("--nocolor") arguments)))
+      ;; We're not highlighting.
+      (if (eq system-type 'windows-nt)
+          ;; Use --vimgrep to work around issue #97 on Windows.
+          (setq arguments (append '("--vimgrep") arguments))
+        (setq arguments (append '("--nocolor") arguments))))
     (when (char-or-string-p file-regex)
       (setq arguments (append `("--file-search-regex" ,file-regex) arguments)))
     (when file-type
@@ -260,6 +266,8 @@ Returns an empty string otherwise."
 
 (autoload 'vc-hg-root "vc-hg")
 
+(autoload 'vc-bzr-root "vc-bzr")
+
 (defun ag/project-root (file-path)
   "Guess the project root of the given FILE-PATH.
 
@@ -270,7 +278,8 @@ roots."
     (or (ag/longest-string
        (vc-git-root file-path)
        (vc-svn-root file-path)
-       (vc-hg-root file-path))
+       (vc-hg-root file-path)
+       (vc-bzr-root file-path))
       file-path)))
 
 (defun ag/dired-align-size-column ()
@@ -375,7 +384,7 @@ matched literally."
 with STRING defaulting to the symbol under point.
 
 If called with a prefix, prompts for flags to pass to ag."
-  (interactive (list (ag/read-from-minibuffer "Search regexp")
+  (interactive (list (ag/read-from-minibuffer "Search string")
                      (read-directory-name "Directory: ")))
   (ag/search string directory))
 
@@ -446,7 +455,7 @@ for the given regexp. The regexp should be in PCRE syntax, not
 Emacs regexp syntax.
 
 If called with a prefix, prompts for flags to pass to ag."
-  (interactive (list (ag/escape-pcre (ag/read-from-minibuffer "Search regexp"))))
+  (interactive (list (ag/read-from-minibuffer "Search regexp")))
   (ag/search regexp (ag/project-root default-directory) :regexp t))
 
 (autoload 'symbol-at-point "thingatpt")
@@ -456,7 +465,8 @@ If called with a prefix, prompts for flags to pass to ag."
 (make-obsolete 'ag-project-at-point 'ag-project "0.19")
 
 ;;;###autoload
-(defalias 'ag-regexp-project-at-point 'ag-project-regexp) ; TODO: mark as obsolete
+(defalias 'ag-regexp-project-at-point 'ag-project-regexp)
+(make-obsolete 'ag-regexp-project-at-point 'ag-project-regexp "0.46")
 
 ;;;###autoload
 (defun ag-dired (dir pattern)
