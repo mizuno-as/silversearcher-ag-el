@@ -10,7 +10,7 @@ Homepage: https://github.com/Wilfred/ag.el
 
 Package: silversearcher-ag-el
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, emacsen-common (>= 2.0.8), silversearcher-ag, emacs, s-el (>= 1.9.0), dash-el (>= 2.8.0)
+Depends: ${shlibs:Depends}, ${misc:Depends}, emacsen-common (>= 2.0.8), silversearcher-ag, elpa-s, elpa-dash, elpa-dash-functional
 Description: Emacs frontend to ag
  The Silver Searcher (a.k.a. ag) is very fast grep-like program.
  It is faster and has an attractive features than grep.

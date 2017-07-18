@@ -1,3 +1,13 @@
+silversearcher-ag-el (0.47-2) unstable; urgency=medium
+
+  * debian/control
+    - drop Depends: emacs. (Closes: #861324)
+    - change Depends: from s-el to elpa-s. (Closes: #865907)
+    - change Depends: from dash-el to elpa-dash. (Closes: #865917)
+    - add Depends: elpa-dash-functional.
+
+ -- Hajime Mizuno <mizuno-as@ubuntu.com>  Fri, 14 Jul 2017 00:29:23 +0900
+
 silversearcher-ag-el (0.47-1) unstable; urgency=medium
 
   * new upstream release
