@@ -1,6 +1,6 @@
 silversearcher-ag-el (0.47-2) unstable; urgency=medium
 
-  * Convert package build to use dh_elpa.
+  * Convert package build to use dh_elpa. (Closes: #868145)
     - Binary package renamed silversearcher-ag-el to elpa-ag with
       transitional binary package provided.
   * Rewrite debian/rules
