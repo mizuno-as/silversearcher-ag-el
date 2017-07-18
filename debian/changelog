@@ -1,10 +1,19 @@
 silversearcher-ag-el (0.47-2) unstable; urgency=medium
 
+  * Convert package build to use dh_elpa.
+    - Binary package renamed silversearcher-ag-el to elpa-ag with
+      transitional binary package provided.
+  * Rewrite debian/rules
+  * Drop debian/emacsen-* and debian/install
+  * Add debian/elpa-ag.elpa
+  * Add debian/s-el.maintscript
+    - Add script to remove 50silversearcher-ag-el.el site start script.
+  * Bump debhelper compat & build-dep to 10.
   * debian/control
-    - drop Depends: emacs. (Closes: #861324)
-    - change Depends: from s-el to elpa-s. (Closes: #865907)
-    - change Depends: from dash-el to elpa-dash. (Closes: #865917)
-    - add Depends: elpa-dash-functional.
+    - Drop Depends: emacs. (Closes: #861324)
+    - Change Depends: from s-el to elpa-s. (Closes: #865907)
+    - Change Depends: from dash-el to elpa-dash. (Closes: #865917)
+    - Add Depends: elpa-dash-functional.
 
  -- Hajime Mizuno <mizuno-as@ubuntu.com>  Fri, 14 Jul 2017 00:29:23 +0900
 
