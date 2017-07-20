@@ -11,6 +11,7 @@ silversearcher-ag-el (0.47-2) unstable; urgency=medium
   * Bump debhelper compat & build-dep to 10.
   * debian/control
     - Set Standards-Version: 4.0.0.
+    - Change Section: from lisp to editors.
     - Drop Depends: emacs. (Closes: #861324)
     - Change Depends: from s-el to elpa-s. (Closes: #865907)
     - Change Depends: from dash-el to elpa-dash. (Closes: #865917)

@@ -1,5 +1,5 @@
 Source: silversearcher-ag-el
-Section: lisp
+Section: editors
 Priority: extra
 Maintainer: Hajime Mizuno <mizuno-as@ubuntu.com>
 Build-Depends: debhelper (>= 10), dh-elpa
