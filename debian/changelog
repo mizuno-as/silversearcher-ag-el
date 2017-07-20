@@ -10,10 +10,15 @@ silversearcher-ag-el (0.47-2) unstable; urgency=medium
     - Add script to remove 50silversearcher-ag-el.el site start script.
   * Bump debhelper compat & build-dep to 10.
   * debian/control
+    - Set Standards-Version: 4.0.0.
     - Drop Depends: emacs. (Closes: #861324)
     - Change Depends: from s-el to elpa-s. (Closes: #865907)
     - Change Depends: from dash-el to elpa-dash. (Closes: #865917)
     - Add Depends: elpa-dash-functional.
+    - Add Breaks and Replaces: silversearcher-ag-el (<< 0.47-2)
+    - Add Provides: silversearcher-ag-el
+  * debian/copyright
+    - Add additional copyright years.
 
  -- Hajime Mizuno <mizuno-as@ubuntu.com>  Fri, 14 Jul 2017 00:29:23 +0900
 
