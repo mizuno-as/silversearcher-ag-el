@@ -1,3 +1,10 @@
+silversearcher-ag-el (0.47-2.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Rebuild against recent dh_elpa (Closes: #900692).
+
+ -- David Bremner <bremner@debian.org>  Mon, 23 Jul 2018 17:59:59 +0800
+
 silversearcher-ag-el (0.47-2) unstable; urgency=medium
 
   * Convert package build to use dh_elpa. (Closes: #868145)
