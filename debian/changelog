@@ -5,6 +5,7 @@ silversearcher-ag-el (0.48-1) unstable; urgency=medium
     - Set Standards-Version: 4.5.0
     - Drop debhelper and use debhelper-compat (= 13)
     - Add Build-Depends: elpa-s, elpa-dash, elpa-f and elpa-undercover
+    - Change Priority from extra to optional
   * debian/rules
     - Override dh_auto_build and dh_auto_install to ignoring upstream Makefile
   * Add debian/elpa-test
