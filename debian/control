@@ -3,7 +3,7 @@ Section: editors
 Priority: extra
 Maintainer: Hajime Mizuno <mizuno-as@ubuntu.com>
 Build-Depends: debhelper (>= 10), dh-elpa
-Standards-Version: 4.0.0
+Standards-Version: 4.5.0
 Homepage: https://github.com/Wilfred/ag.el
 #Vcs-Git: git://git.debian.org/collab-maint/silversearcher-ag-el.git
 #Vcs-Browser: http://git.debian.org/?p=collab-maint/silversearcher-ag-el.git;a=summary
