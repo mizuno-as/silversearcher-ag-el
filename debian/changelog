@@ -8,6 +8,8 @@ silversearcher-ag-el (0.48-1) unstable; urgency=medium
     - Change Priority from extra to optional
   * debian/rules
     - Override dh_auto_build and dh_auto_install to ignoring upstream Makefile
+  * debian/copyright
+    - Add Upstream-Contact
   * Add debian/elpa-test
     - Load the test helper script
   * remove debian/compat
