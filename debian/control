@@ -1,6 +1,6 @@
 Source: silversearcher-ag-el
 Section: editors
-Priority: extra
+Priority: optional
 Maintainer: Hajime Mizuno <mizuno-as@ubuntu.com>
 Build-Depends: debhelper-compat (= 13), dh-elpa, elpa-s, elpa-dash, elpa-f, elpa-undercover
 Standards-Version: 4.5.0
