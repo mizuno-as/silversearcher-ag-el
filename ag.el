@@ -4,7 +4,7 @@
 ;;
 ;; Author: Wilfred Hughes <me@wilfred.me.uk>
 ;; Created: 11 January 2013
-;; Version: 0.47
+;; Version: 0.48
 ;; Package-Requires: ((dash "2.8.0") (s "1.9.0") (cl-lib "0.5"))
 ;;; Commentary:
 
@@ -38,6 +38,11 @@
 (require 's)
 (require 'find-dired) ;; find-dired-filter
 
+(defgroup ag nil
+  "A front-end for ag - The Silver Searcher."
+  :group 'tools
+  :group 'matching)
+
 (defcustom ag-executable
   "ag"
   "Name of the ag executable to use."
@@ -45,15 +50,34 @@
   :group 'ag)
 
 (defcustom ag-arguments
-  (list "--line-number" "--smart-case" "--nogroup" "--column" "--stats" "--")
-  "Default arguments passed to ag.
+  (list "--smart-case" "--stats")
+  "Additional arguments passed to ag.
 
-Ag.el requires --nogroup and --column, so we recommend you add any
-additional arguments to the start of this list.
+Ag.el internally uses --column, --line-number and --color
+options (with specific colors) to match groups, so options
+specified here should not conflict.
 
 --line-number is required on Windows, as otherwise ag will not
 print line numbers when the input is a stream."
   :type '(repeat (string))
+  :group 'ag)
+
+(defcustom ag-dired-arguments
+  (list "--nocolor" "-S")
+  "Additional arguments passed to ag-dired."
+  :type '(repeat (string))
+  :group 'ag)
+
+(defcustom ag-context-lines nil
+  "Number of context lines to include before and after a matching line."
+  :type 'integer
+  :group 'ag)
+
+(defcustom ag-group-matches t
+  "Group matches in the same file together.
+
+If nil, the file name is repeated at the beginning of every match line."
+  :type 'boolean
   :group 'ag)
 
 (defcustom ag-highlight-search nil
@@ -89,9 +113,11 @@ If set to nil, fall back to finding VCS root directories."
   :group 'ag)
 
 (defcustom ag-ignore-list nil
-  "A list of patterns to ignore when searching."
+  "A list of patterns for files/directories to ignore when searching."
   :type '(repeat (string))
   :group 'ag)
+(make-variable-buffer-local 'ag-ignore-list)
+(put 'ag-ignore-list 'safe-local-variable #'listp)
 
 (require 'compile)
 
@@ -139,16 +165,29 @@ different window, according to `ag-reuse-window'."
 ;; handle weird file names (with colons in them) as well as possible.
 ;; E.g. we use [1-9][0-9]* rather than [0-9]+ so as to accept ":034:"
 ;; in file names.
-(defvar ag/file-column-pattern
+(defvar ag/file-column-pattern-nogroup
   "^\\(.+?\\):\\([1-9][0-9]*\\):\\([1-9][0-9]*\\):"
   "A regexp pattern that groups output into filename, line number and column number.")
+
+(defvar ag/file-column-pattern-group
+  "^\\([[:digit:]]+\\):\\([[:digit:]]+\\):"
+  "A regexp pattern to match line number and column number with grouped output.")
+
+(defun ag/compilation-match-grouped-filename ()
+  "Match filename backwards when a line/column match is found in grouped output mode."
+  (save-match-data
+    (save-excursion
+      (when (re-search-backward "^File: \\(.*\\)$" (point-min) t)
+        (list (match-string 1))))))
 
 (define-compilation-mode ag-mode "Ag"
   "Ag results compilation mode"
   (set (make-local-variable 'compilation-error-regexp-alist)
-       (list 'compilation-ag-nogroup))
+       '(compilation-ag-nogroup compilation-ag-group))
   (set (make-local-variable 'compilation-error-regexp-alist-alist)
-       (list (cons 'compilation-ag-nogroup (list ag/file-column-pattern 1 2 3))))
+       (list (cons 'compilation-ag-nogroup  (list ag/file-column-pattern-nogroup 1 2 3))
+             (cons 'compilation-ag-group  (list ag/file-column-pattern-group
+                                                'ag/compilation-match-grouped-filename 1 2))))
   (set (make-local-variable 'compilation-error-face) 'ag-hit-face)
   (set (make-local-variable 'next-error-function) #'ag/next-error-function)
   (set (make-local-variable 'compilation-finish-functions)
@@ -157,7 +196,7 @@ different window, according to `ag-reuse-window'."
 
 (define-key ag-mode-map (kbd "p") #'compilation-previous-error)
 (define-key ag-mode-map (kbd "n") #'compilation-next-error)
-(define-key ag-mode-map (kbd "k") '(lambda () (interactive) 
+(define-key ag-mode-map (kbd "k") '(lambda () (interactive)
                                      (let (kill-buffer-query-functions) (kill-buffer))))
 
 (defun ag/buffer-name (search-string directory regexp)
@@ -173,39 +212,50 @@ different window, according to `ag-reuse-window'."
          (mapcar (lambda (item) (list "--ignore" item)) ignores)))
 
 (cl-defun ag/search (string directory
-                            &key (regexp nil) (file-regex nil) (file-type nil))
+                            &key (regexp nil) (file-regex nil) (file-type nil) (files '(".")))
   "Run ag searching for the STRING given in DIRECTORY.
+If `files` is passed, tell ag to look only on those files.
 If REGEXP is non-nil, treat STRING as a regular expression."
   (let ((default-directory (file-name-as-directory directory))
         (arguments ag-arguments)
         (shell-command-switch "-c"))
+    ;; Add double dashes at the end of command line if not specified in
+    ;; ag-arguments.
+    (unless (equal (car (last arguments)) "--")
+      (setq arguments (append arguments '("--"))))
+    (setq arguments
+          (append '("--line-number" "--column" "--color" "--color-match" "30;43"
+                    "--color-path" "1;32")
+                  arguments))
+    (if ag-group-matches
+        (setq arguments (cons "--group" arguments))
+      (setq arguments (cons "--nogroup" arguments)))
     (unless regexp
       (setq arguments (cons "--literal" arguments)))
-    (if ag-highlight-search
-        ;; We're highlighting, so pass additional arguments for
-        ;; highlighting the current search term using shell escape
-        ;; sequences.
-        (setq arguments (append '("--color" "--color-match" "30;43") arguments))
-      ;; We're not highlighting.
-      (if (eq system-type 'windows-nt)
-          ;; Use --vimgrep to work around issue #97 on Windows.
-          (setq arguments (append '("--vimgrep") arguments))
-        (setq arguments (append '("--nocolor") arguments))))
+    (when (or (eq system-type 'windows-nt) (eq system-type 'cygwin))
+      ;; Use --vimgrep to work around issue #97 on Windows.
+      (setq arguments (cons "--vimgrep" arguments)))
     (when (char-or-string-p file-regex)
       (setq arguments (append `("--file-search-regex" ,file-regex) arguments)))
     (when file-type
       (setq arguments (cons (format "--%s" file-type) arguments)))
+    (if (integerp current-prefix-arg)
+        (setq arguments (cons (format "--context=%d" (abs current-prefix-arg)) arguments))
+      (when ag-context-lines
+        (setq arguments (cons (format "--context=%d" ag-context-lines) arguments))))
     (when ag-ignore-list
       (setq arguments (append (ag/format-ignore ag-ignore-list) arguments)))
     (unless (file-exists-p default-directory)
       (error "No such directory %s" default-directory))
     (let ((command-string
            (mapconcat #'shell-quote-argument
-                      (append (list ag-executable) arguments (list string "."))
+                      (append (list ag-executable) arguments (append `(,string) files))
                       " ")))
       ;; If we're called with a prefix, let the user modify the command before
       ;; running it. Typically this means they want to pass additional arguments.
-      (when current-prefix-arg
+      ;; The numeric value is used for context lines: positive is just context
+      ;; number (no modification), negative allows further modification.
+      (when (and current-prefix-arg (not (and (integerp current-prefix-arg) (> current-prefix-arg 0))))
         ;; Make a space in the command-string for the user to enter more arguments.
         (setq command-string (ag/replace-first command-string " -- " "  -- "))
         ;; Prompt for the command.
@@ -240,13 +290,10 @@ Returns an empty string otherwise."
 (defun ag/longest-string (&rest strings)
   "Given a list of strings and nils, return the longest string."
   (let ((longest-string nil))
-    (dolist (string strings)
-      (cond ((null longest-string)
-             (setq longest-string string))
-            ((stringp string)
-             (when (< (length longest-string)
-                      (length string))
-               (setq longest-string string)))))
+    (dolist (string (-non-nil strings))
+      (when (< (length longest-string)
+               (length string))
+        (setq longest-string string)))
     longest-string))
 
 (defun ag/replace-first (string before after)
@@ -380,7 +427,7 @@ matched literally."
 
 ;;;###autoload
 (defun ag (string directory)
-  "Search using ag in a given DIRECTORY for a given search STRING,
+  "Search using ag in a given DIRECTORY for a given literal search STRING,
 with STRING defaulting to the symbol under point.
 
 If called with a prefix, prompts for flags to pass to ag."
@@ -390,9 +437,9 @@ If called with a prefix, prompts for flags to pass to ag."
 
 ;;;###autoload
 (defun ag-files (string file-type directory)
-  "Search using ag in a given DIRECTORY for a given search STRING,
-limited to files that match FILE-TYPE. STRING defaults to
-the symbol under point.
+  "Search using ag in a given DIRECTORY for a given literal search STRING,
+limited to files that match FILE-TYPE. STRING defaults to the
+symbol under point.
 
 If called with a prefix, prompts for flags to pass to ag."
   (interactive (list (ag/read-from-minibuffer "Search string")
@@ -412,7 +459,7 @@ If called with a prefix, prompts for flags to pass to ag."
 ;;;###autoload
 (defun ag-project (string)
   "Guess the root of the current project and search it with ag
-for the given string.
+for the given literal search STRING.
 
 If called with a prefix, prompts for flags to pass to ag."
   (interactive (list (ag/read-from-minibuffer "Search string")))
@@ -420,7 +467,7 @@ If called with a prefix, prompts for flags to pass to ag."
 
 ;;;###autoload
 (defun ag-project-files (string file-type)
-  "Search using ag for a given search STRING,
+  "Search using ag for a given literal search STRING,
 limited to files that match FILE-TYPE. STRING defaults to the
 symbol under point.
 
@@ -469,8 +516,8 @@ If called with a prefix, prompts for flags to pass to ag."
 (make-obsolete 'ag-regexp-project-at-point 'ag-project-regexp "0.46")
 
 ;;;###autoload
-(defun ag-dired (dir pattern)
-  "Recursively find files in DIR matching PATTERN.
+(defun ag-dired (dir string)
+  "Recursively find files in DIR matching literal search STRING.
 
 The PATTERN is matched against the full path to the file, not
 only against the file name.
@@ -480,7 +527,7 @@ The results are presented as a `dired-mode' buffer with
 
 See also `ag-dired-regexp'."
   (interactive "DDirectory: \nsFile pattern: ")
-  (ag-dired-regexp dir (ag/escape-pcre pattern)))
+  (ag-dired-regexp dir (ag/escape-pcre string)))
 
 ;;;###autoload
 (defun ag-dired-regexp (dir regexp)
@@ -501,10 +548,17 @@ See also `find-dired'."
          (buffer-name (if ag-reuse-buffers
                           "*ag dired*"
                         (format "*ag dired pattern:%s dir:%s*" regexp dir)))
-         (cmd (concat ag-executable " --nocolor -g '" regexp "' "
-                      (shell-quote-argument dir)
-                      " | grep -v '^$' | sed s/\\'/\\\\\\\\\\'/ | xargs -I '{}' ls "
-                      dired-listing-switches " '{}' &")))
+         (cmd (if (string= system-type "windows-nt")
+                  (concat ag-executable " " (combine-and-quote-strings ag-dired-arguments " ") " -g \"" regexp "\" "
+                          (shell-quote-argument dir)
+                          " | grep -v \"^$\" | sed \"s/'/\\\\\\\\'/g\" | xargs -I '{}' "
+                          insert-directory-program " "
+                          dired-listing-switches " '{}' &")
+                (concat ag-executable " " (combine-and-quote-strings ag-dired-arguments " ") " -g '" regexp "' "
+                        (shell-quote-argument dir)
+                        " | grep -v '^$' | sed s/\\'/\\\\\\\\\\'/g | xargs -I '{}' "
+                        insert-directory-program " "
+                        dired-listing-switches " '{}' &"))))
     (with-current-buffer (get-buffer-create buffer-name)
       (switch-to-buffer (current-buffer))
       (widen)
@@ -573,30 +627,39 @@ See also `ag-dired-regexp'."
              (not (eq buffer current-buffer)))
         (kill-buffer buffer)))))
 
-;; Taken from grep-filter, just changed the color regex.
+;; Based on grep-filter.
 (defun ag-filter ()
-  "Handle match highlighting escape sequences inserted by the ag process.
+  "Handle escape sequences inserted by the ag process.
 This function is called from `compilation-filter-hook'."
-  (when ag-highlight-search
-    (save-excursion
+  (save-excursion
+    (forward-line 0)
+    (let ((end (point)) beg)
+      (goto-char compilation-filter-start)
       (forward-line 0)
-      (let ((end (point)) beg)
-        (goto-char compilation-filter-start)
-        (forward-line 0)
-        (setq beg (point))
-        ;; Only operate on whole lines so we don't get caught with part of an
-        ;; escape sequence in one chunk and the rest in another.
-        (when (< (point) end)
-          (setq end (copy-marker end))
+      (setq beg (point))
+      ;; Only operate on whole lines so we don't get caught with part of an
+      ;; escape sequence in one chunk and the rest in another.
+      (when (< (point) end)
+        (setq end (copy-marker end))
+        (when ag-highlight-search
           ;; Highlight ag matches and delete marking sequences.
-          (while (re-search-forward "\033\\[30;43m\\(.*?\\)\033\\[[0-9]*m" end 1)
+          (while (re-search-forward "\033\\[30;43m\\(.*?\\)\033\\[0m\033\\[K" end 1)
             (replace-match (propertize (match-string 1)
                                        'face nil 'font-lock-face 'ag-match-face)
-                           t t))
-          ;; Delete all remaining escape sequences
+                           t t)))
+        ;; Add marker at start of line for files. This is used by the match
+        ;; in `compilation-error-regexp-alist' to extract the file name.
+        (when ag-group-matches
           (goto-char beg)
-          (while (re-search-forward "\033\\[[0-9;]*[mK]" end 1)
-            (replace-match "" t t)))))))
+          (while (re-search-forward "\033\\[1;32m\\(.*\\)\033\\[0m\033\\[K" end 1)
+            (replace-match
+             (concat "File: " (propertize (match-string 1) 'face nil 'font-lock-face
+                                          'compilation-info))
+             t t)))
+        ;; Delete all remaining escape sequences
+        (goto-char beg)
+        (while (re-search-forward "\033\\[[0-9;]*[mK]" end 1)
+          (replace-match "" t t))))))
 
 (defun ag/get-supported-types ()
   "Query the ag executable for which file types it recognises."

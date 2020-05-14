@@ -5,7 +5,8 @@ Using with Projectile
 ---------------------
 
 `Projectile <https://github.com/bbatsov/projectile>`_ supports ag.el. If
-you have Projectile installed, ``C-c p s s`` runs ``ag-regexp`` on your project.
+you have Projectile installed, ``C-c p s s`` runs ``ag`` on your project or
+``ag-regexp`` if a prefix argument is provided.
 
 Customising the project root
 ----------------------------
@@ -23,6 +24,14 @@ ag.el. If you install wgrep-ag
 simply run ``wgrep-change-to-wgrep-mode`` and edit the ``*ag*``
 buffer. Press ``C-x C-s`` when you're done to make the changes to
 buffers.
+
+Focusing and filtering the results
+----------------------------------
+
+`winnow <https://github.com/dgtized/winnow.el>`_ can be used to focus or filter
+the results from ag. With the minor mode enabled, ``x`` excludes unwanted
+results, and ``m`` selects only the lines that match.
+
 
 Writing Your Own
 ----------------
