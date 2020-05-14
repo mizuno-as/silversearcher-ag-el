@@ -7,6 +7,8 @@ silversearcher-ag-el (0.48-1) unstable; urgency=medium
     - Add Build-Depends: elpa-s, elpa-dash, elpa-f and elpa-undercover
   * debian/rules
     - Override dh_auto_build and dh_auto_install to ignoring upstream Makefile
+  * Add debian/elpa-test
+    - Load the test helper script
   * remove debian/compat
 
  -- Hajime Mizuno <mizuno-as@ubuntu.com>  Thu, 14 May 2020 15:34:22 +0900
