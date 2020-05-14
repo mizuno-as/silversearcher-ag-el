@@ -1,3 +1,13 @@
+silversearcher-ag-el (0.48-1) unstable; urgency=medium
+
+  * new upstream release (Closes: #960560)
+  * debian/control
+    - Set Standards-Version: 4.5.0
+    - Drop debhelper and use debhelper-compat (= 13)
+  * remove debian/compat
+
+ -- Hajime Mizuno <mizuno-as@ubuntu.com>  Thu, 14 May 2020 15:34:22 +0900
+
 silversearcher-ag-el (0.47-2.1) unstable; urgency=medium
 
   * Non-maintainer upload.
